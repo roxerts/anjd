@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Walker Delta 24/6/1 — Iridium-class constellation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+  :root{
+    --bg: #090c11;
+    --panel: rgba(15,20,27,0.86);
+    --panel-border: #212b36;
+    --text-1: #dbe3ea;
+    --text-2: #798392;
+    --cyan: #5fc9d8;
+    --amber: #e8a03d;
+    --line: #1b232d;
+    --p0:#5ec8d8; --p1:#e8a33d; --p2:#e8618c; --p3:#9d8bf0; --p4:#7bc47f; --p5:#e85d5d;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;background:var(--bg);color:var(--text-1);
+    font-family:'Space Grotesk',sans-serif; overflow:hidden; height:100%;}
+  #canvas-wrap{position:fixed;inset:0;}
+  canvas{display:block;}
+
+  .mono{font-family:'JetBrains Mono',monospace;}
+
+  .hud{position:fixed; z-index:5; pointer-events:none;}
+  .hud.interactive, .hud .interactive{pointer-events:auto;}
+
+  #title{top:22px; left:26px;}
+  #title h1{font-size:20px; font-weight:600; margin:0 0 2px 0; letter-spacing:0.2px;}
+  #title p{margin:0; font-size:13px; color:var(--text-2);}
+
+  #legend{top:22px; right:26px; text-align:right;}
+  #legend .row{display:flex; align-items:center; justify-content:flex-end; gap:8px; font-size:12px; color:var(--text-2); margin-bottom:4px;}
+  #legend .sw{width:10px;height:10px;border-radius:2px;flex-shrink:0;}
+
+  #panel{
+    top:78px; right:26px; width:270px;
+    background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:10px; padding:16px 16px 14px 16px; backdrop-filter: blur(6px);
+    max-height: calc(100vh - 300px); overflow-y:auto;
+  }
+  #panel.collapsed{display:none;}
+  #panel .panelhead{display:flex; align-items:center; justify-content:space-between; margin-bottom:12px;}
+  #panel h2{font-size:12px; font-weight:600; margin:0; color:var(--text-1); text-transform:none;}
+  #panel-close{background:none; border:none; color:var(--text-2); font-size:16px; line-height:1; padding:0 2px; flex:none;}
+  #panel-close:hover{color:var(--cyan); border:none;}
+  #menu-open{
+    top:78px; right:26px; z-index:6;
+    background:var(--panel); border:1px solid var(--panel-border); border-radius:8px;
+    padding:9px 14px; font-size:12px; font-weight:500; color:var(--cyan);
+    backdrop-filter: blur(6px); cursor:pointer; display:none;
+  }
+  #menu-open:hover{border-color:var(--cyan);}
+  .field{margin-bottom:13px;}
+  .field label{display:flex; justify-content:space-between; font-size:11.5px; color:var(--text-2); margin-bottom:5px;}
+  .field label span.val{color:var(--cyan); font-family:'JetBrains Mono',monospace;}
+  input[type=range]{
+    -webkit-appearance:none; width:100%; height:3px; border-radius:2px;
+    background:#26313d; outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none; width:13px; height:13px; border-radius:50%;
+    background:var(--cyan); cursor:pointer; border:2px solid #0c1015;
+  }
+  input[type=range]::-moz-range-thumb{
+    width:13px; height:13px; border-radius:50%; background:var(--cyan); border:2px solid #0c1015; cursor:pointer;
+  }
+  .checkrow{display:flex; align-items:center; gap:8px; margin-bottom:13px; cursor:pointer;}
+  .checkrow input{width:14px; height:14px; accent-color:var(--cyan); cursor:pointer;}
+  .checkrow span{font-size:11.5px; color:var(--text-2);}
+  .scalefact{font-size:10.5px; color:var(--text-2); line-height:1.5; margin-top:10px; padding-top:10px; border-top:1px solid var(--line);}
+  .scalefact b{color:var(--cyan); font-family:'JetBrains Mono',monospace; font-weight:500;}
+  .btnrow{display:flex; gap:8px; margin-top:4px;}
+  button{
+    font-family:'Space Grotesk',sans-serif; font-size:11.5px; font-weight:500;
+    background:#161d26; color:var(--text-1); border:1px solid var(--panel-border);
+    border-radius:6px; padding:8px 10px; cursor:pointer; flex:1;
+    transition:border-color .15s, color .15s;
+  }
+  button:hover{border-color:var(--cyan); color:var(--cyan);}
+  button.primary{background:#16323a; border-color:#2a5560; color:var(--cyan);}
+  button.play{width:100%; margin-top:2px;}
+  .divider{height:1px;background:var(--line);margin:14px 0;}
+
+  #telemetry{
+    bottom:22px; left:26px; width:300px;
+    background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:10px; padding:14px 16px;
+  }
+  #telemetry h2{font-size:12px; font-weight:600; margin:0 0 10px 0;}
+  #telemetry .row{display:flex; justify-content:space-between; font-size:12px; padding:3px 0; color:var(--text-2);}
+  #telemetry .row b{color:var(--text-1); font-family:'JetBrains Mono',monospace; font-weight:500;}
+
+  #speccard{
+    bottom:22px; right:26px; width:270px;
+    background:var(--panel); border:1px solid var(--panel-border);
+    border-radius:10px; padding:14px 16px;
+  }
+  #speccard h2{font-size:12px; font-weight:600; margin:0 0 4px 0;}
+  #speccard .sub{font-size:11px; color:var(--text-2); margin-bottom:10px;}
+  #speccard .row{display:flex; justify-content:space-between; font-size:11.5px; padding:2.5px 0; color:var(--text-2); border-top:1px solid var(--line);}
+  #speccard .row:first-of-type{border-top:none;}
+  #speccard .row b{color:var(--text-1); font-family:'JetBrains Mono',monospace; font-weight:500; text-align:right;}
+
+  #satcard{
+    position:fixed; z-index:10; width:220px; background:var(--panel);
+    border:1px solid var(--amber); border-radius:8px; padding:12px 14px;
+    display:none; pointer-events:none;
+  }
+  #satcard h3{margin:0 0 8px 0; font-size:12.5px; color:var(--amber);}
+  #satcard .row{display:flex; justify-content:space-between; font-size:11px; color:var(--text-2); padding:2px 0;}
+  #satcard .row b{color:var(--text-1); font-family:'JetBrains Mono',monospace;}
+
+  #note{
+    bottom:22px; left:50%; transform:translateX(-50%);
+    font-size:11px; color:var(--text-2); max-width:520px; text-align:center;
+  }
+
+  @media (max-width: 900px){
+    #panel, #speccard{width:220px;}
+    #telemetry{width:220px;}
+    #note{display:none;}
+  }
+  @media (max-width: 680px){
+    #legend{display:none;}
+    #telemetry{left:12px; right:12px; width:auto; bottom:12px;}
+    #speccard{display:none;}
+    #panel{right:12px; top:70px; width:200px;}
+    #menu-open{right:12px; top:70px;}
+    #title{left:12px; top:12px;}
+    #title h1{font-size:16px;}
+  }
+</style>
+</head>
+<body>
+
+<div id="canvas-wrap"></div>
+
+<div class="hud" id="title">
+  <h1>Walker Delta 24/6/1</h1>
+  <p>Earth, altitude, and spacecraft rendered at true relative scale — angles computed from Walker phasing math</p>
+</div>
+
+<div class="hud" id="legend"></div>
+
+<button class="hud interactive" id="menu-open">Show controls ▾</button>
+
+<div class="hud interactive" id="panel">
+  <div class="panelhead">
+    <h2>Constellation parameters</h2>
+    <button id="panel-close" title="Hide menu">✕</button>
+  </div>
+
+  <div class="field">
+    <label>Total satellites (T) <span class="val" id="v-T">24</span></label>
+    <input type="range" id="s-T" min="4" max="72" step="1" value="24">
+  </div>
+  <div class="field">
+    <label>Orbital planes (P) <span class="val" id="v-P">6</span></label>
+    <input type="range" id="s-P" min="1" max="12" step="1" value="6">
+  </div>
+  <div class="field">
+    <label>Phasing factor (F) <span class="val" id="v-F">1</span></label>
+    <input type="range" id="s-F" min="0" max="11" step="1" value="1">
+  </div>
+  <div class="field">
+    <label>Inclination <span class="val" id="v-inc">80.0°</span></label>
+    <input type="range" id="s-inc" min="0" max="180" step="0.5" value="80">
+  </div>
+  <div class="field">
+    <label>Altitude <span class="val" id="v-alt">780 km</span></label>
+    <input type="range" id="s-alt" min="400" max="2000" step="10" value="780">
+  </div>
+
+  <div class="btnrow">
+    <button id="btn-reset" class="primary">24/6/1 · 80°</button>
+    <button id="btn-iridium">66/6/2 · 86.4°</button>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="field">
+    <label>Time warp <span class="val" id="v-warp">1200×</span></label>
+    <input type="range" id="s-warp" min="1" max="4000" step="1" value="1200">
+  </div>
+  <label class="checkrow">
+    <input type="checkbox" id="s-truescale" checked>
+    <span>True-to-scale markers (recommended)</span>
+  </label>
+  <div class="field">
+    <label id="lbl-size">Marker size (visibility only) <span class="val" id="v-size">1.0×</span></label>
+    <input type="range" id="s-size" min="0.3" max="4" step="0.1" value="1">
+  </div>
+  <button class="play" id="btn-play">Pause</button>
+
+  <div class="scalefact" id="scalefact"></div>
+</div>
+
+<div class="hud" id="telemetry">
+  <h2>Derived orbit geometry</h2>
+  <div class="row"><span>Satellites per plane</span><b id="t-spp">4</b></div>
+  <div class="row"><span>RAAN spacing (planes)</span><b id="t-raan">60.0°</b></div>
+  <div class="row"><span>In-plane spacing</span><b id="t-inplane">90.0°</b></div>
+  <div class="row"><span>Inter-plane phase offset</span><b id="t-phase">15.0°</b></div>
+  <div class="row"><span>Semi-major axis</span><b id="t-sma">7151 km</b></div>
+  <div class="row"><span>Orbital period</span><b id="t-period">100.5 min</b></div>
+  <div class="row"><span>Orbital velocity</span><b id="t-vel">7.46 km/s</b></div>
+  <div class="row"><span>Same-plane arc separation</span><b id="t-arc">—</b></div>
+  <div class="row"><span>Same-plane chord distance</span><b id="t-chord">—</b></div>
+  <div class="row"><span>Nearest cross-plane distance (live)</span><b id="t-cross">—</b></div>
+</div>
+
+<div class="hud" id="speccard">
+  <h2>Iridium NEXT spacecraft</h2>
+  <div class="sub">Real hardware used for every satellite model</div>
+  <div class="row"><span>Launch mass</span><b>860 kg</b></div>
+  <div class="row"><span>Bus (launch config)</span><b>3.1 × 2.4 × 1.5 m</b></div>
+  <div class="row"><span>Deployed wingspan</span><b>9.4 m</b></div>
+  <div class="row"><span>Real constellation</span><b>66/6/2, 86.4°, 780 km</b></div>
+  <div class="row"><span>Real orbit type</span><b>near-polar Walker Star</b></div>
+</div>
+
+<div id="satcard"></div>
+
+<div class="hud" id="note">Drag to orbit the camera · scroll to zoom · click a satellite for its telemetry · white arcs show the computed plane and phasing angles</div>
+
+<script>
+(function(){
+  const wrap = document.getElementById('canvas-wrap');
+  const MU = 398600.4418;      // km^3/s^2, Earth
+  const R_EARTH = 6371;        // km
+  const SCALE = 1/700;         // scene units per km
+
+  // ---------- three.js scaffolding ----------
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(48, window.innerWidth/window.innerHeight, 0.05, 500);
+  const renderer = new THREE.WebGLRenderer({antialias:true});
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  wrap.appendChild(renderer.domElement);
+
+  // simple orbit-drag camera
+  let camState = { theta: 0.9, phi: 1.15, radius: 26 };
+  function updateCamera(){
+    const {theta, phi, radius} = camState;
+    camera.position.set(
+      radius*Math.sin(phi)*Math.sin(theta),
+      radius*Math.cos(phi),
+      radius*Math.sin(phi)*Math.cos(theta)
+    );
+    camera.lookAt(0,0,0);
+  }
+  updateCamera();
+
+  let dragging=false, lastX=0, lastY=0;
+  renderer.domElement.addEventListener('pointerdown', e=>{dragging=true; lastX=e.clientX; lastY=e.clientY;});
+  window.addEventListener('pointerup', ()=>dragging=false);
+  window.addEventListener('pointermove', e=>{
+    if(!dragging) return;
+    const dx = e.clientX-lastX, dy = e.clientY-lastY;
+    lastX=e.clientX; lastY=e.clientY;
+    camState.theta -= dx*0.005;
+    camState.phi = Math.min(Math.max(camState.phi - dy*0.005, 0.15), Math.PI-0.15);
+    updateCamera();
+  });
+  renderer.domElement.addEventListener('wheel', e=>{
+    e.preventDefault();
+    camState.radius = Math.min(Math.max(camState.radius + e.deltaY*0.02, 11), 60);
+    updateCamera();
+  }, {passive:false});
+
+  window.addEventListener('resize', ()=>{
+    camera.aspect = window.innerWidth/window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+  });
+
+  // ---------- lighting ----------
+  scene.add(new THREE.AmbientLight(0x8899aa, 0.55));
+  const sun = new THREE.DirectionalLight(0xffffff, 1.1);
+  sun.position.set(12, 6, 8);
+  scene.add(sun);
+
+  // ---------- starfield ----------
+  {
+    const starGeo = new THREE.BufferGeometry();
+    const N = 2200, pos = new Float32Array(N*3);
+    for(let i=0;i<N;i++){
+      const r = 90 + Math.random()*160;
+      const u = Math.random()*Math.PI*2, v = Math.acos(2*Math.random()-1);
+      pos[i*3]   = r*Math.sin(v)*Math.cos(u);
+      pos[i*3+1] = r*Math.cos(v);
+      pos[i*3+2] = r*Math.sin(v)*Math.sin(u);
+    }
+    starGeo.setAttribute('position', new THREE.BufferAttribute(pos,3));
+    const starMat = new THREE.PointsMaterial({color:0x9fb3c8, size:0.14, transparent:true, opacity:0.75});
+    scene.add(new THREE.Points(starGeo, starMat));
+  }
+
+  // ---------- Earth (instrument-style, not cartographic) ----------
+  const earthR = R_EARTH*SCALE;
+  const earthGroup = new THREE.Group();
+  scene.add(earthGroup);
+
+  const earthMat = new THREE.MeshPhongMaterial({
+    color:0x10202c, emissive:0x050d12, shininess:12, transparent:true, opacity:0.97
+  });
+  const earthMesh = new THREE.Mesh(new THREE.SphereGeometry(earthR, 48, 48), earthMat);
+  earthGroup.add(earthMesh);
+
+  // lat/long grid, equator emphasized
+  function addGraticule(){
+    const gridMat = new THREE.LineBasicMaterial({color:0x2c4152, transparent:true, opacity:0.55});
+    const eqMat = new THREE.LineBasicMaterial({color:0x5fc9d8, transparent:true, opacity:0.85});
+    for(let lat=-60; lat<=60; lat+=30){
+      const pts=[]; const rad = lat*Math.PI/180;
+      const rr = earthR*Math.cos(rad)*1.001, yy = earthR*Math.sin(rad)*1.001;
+      for(let i=0;i<=64;i++){ const a=i/64*Math.PI*2; pts.push(new THREE.Vector3(rr*Math.cos(a), yy, rr*Math.sin(a))); }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      earthGroup.add(new THREE.Line(geo, lat===0?eqMat:gridMat));
+    }
+    for(let lon=0; lon<360; lon+=30){
+      const pts=[]; const rad = lon*Math.PI/180;
+      for(let i=0;i<=64;i++){
+        const a = -Math.PI/2 + i/64*Math.PI;
+        pts.push(new THREE.Vector3(earthR*Math.cos(a)*Math.cos(rad)*1.001, earthR*Math.sin(a)*1.001, earthR*Math.cos(a)*Math.sin(rad)*1.001));
+      }
+      const geo = new THREE.BufferGeometry().setFromPoints(pts);
+      earthGroup.add(new THREE.Line(geo, gridMat));
+    }
+  }
+  addGraticule();
+
+  // atmosphere glow
+  const glowMat = new THREE.MeshBasicMaterial({color:0x5fc9d8, transparent:true, opacity:0.08, side:THREE.BackSide});
+  earthGroup.add(new THREE.Mesh(new THREE.SphereGeometry(earthR*1.045, 48,48), glowMat));
+
+  // ---------- constellation state ----------
+  const PLANE_COLORS = [0x5ec8d8,0xe8a33d,0xe8618c,0x9d8bf0,0x7bc47f,0xe85d5d,0x5ec8d8,0xe8a33d,0xe8618c,0x9d8bf0,0x7bc47f,0xe85d5d];
+  // real Iridium NEXT bus, in km, used for true-scale rendering
+  const SAT_DIAGONAL_KM = Math.sqrt(3.1*3.1 + 2.4*2.4 + 1.5*1.5)*0.001; // ~0.0042 km
+  const SAT_TRUE_RADIUS_UNITS = SAT_DIAGONAL_KM*SCALE; // genuine size in scene units (sub-pixel)
+  let cfg = { T:24, P:6, F:1, incDeg:80, altKm:780, warp:1200, satSize:1.0, trueScale:true, playing:true };
+  let orbitLines = [], satGroups = [], angleGroups = [];
+  let simTime = 0, frameCount = 0;
+
+  function clearConstellation(){
+    orbitLines.forEach(o=>scene.remove(o));
+    satGroups.forEach(g=>scene.remove(g.mesh));
+    angleGroups.forEach(o=>scene.remove(o));
+    orbitLines = []; satGroups = []; angleGroups = [];
+  }
+
+  // shared soft-dot texture for true-scale markers
+  const dotTexture = (function(){
+    const c = document.createElement('canvas'); c.width = 64; c.height = 64;
+    const ctx = c.getContext('2d');
+    const g = ctx.createRadialGradient(32,32,0,32,32,32);
+    g.addColorStop(0,'rgba(255,255,255,1)');
+    g.addColorStop(0.4,'rgba(255,255,255,0.9)');
+    g.addColorStop(1,'rgba(255,255,255,0)');
+    ctx.fillStyle = g; ctx.fillRect(0,0,64,64);
+    return new THREE.CanvasTexture(c);
+  })();
+
+  function makeLabel(text, colorHex){
+    const c = document.createElement('canvas'); c.width = 300; c.height = 80;
+    const ctx = c.getContext('2d');
+    ctx.font = '600 42px "Space Grotesk", sans-serif';
+    ctx.fillStyle = colorHex || '#dbe3ea';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, 150, 40);
+    const tex = new THREE.CanvasTexture(c);
+    const mat = new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false});
+    const spr = new THREE.Sprite(mat);
+    spr.scale.set(1.1, 0.29, 1);
+    return spr;
+  }
+
+  function colorToCss(hex){ return '#'+hex.toString(16).padStart(6,'0'); }
+
+  function buildDetailedSatelliteMesh(color){
+    const g = new THREE.Group();
+    const s = cfg.satSize;
+    const busMat = new THREE.MeshPhongMaterial({color:0xd7dee6, shininess:40});
+    const bus = new THREE.Mesh(new THREE.BoxGeometry(0.10*s, 0.078*s, 0.048*s), busMat); // 3.1x2.4x1.5 ratio
+    g.add(bus);
+    const panelMat = new THREE.MeshPhongMaterial({color:0x2a4a6b, shininess:70, side:THREE.DoubleSide});
+    const panelGeo = new THREE.BoxGeometry(0.30*s, 0.002*s, 0.09*s); // deployed wingspan ratio
+    const p1 = new THREE.Mesh(panelGeo, panelMat); p1.position.x = 0.19*s; g.add(p1);
+    const p2 = new THREE.Mesh(panelGeo, panelMat); p2.position.x = -0.19*s; g.add(p2);
+    const marker = new THREE.Mesh(new THREE.SphereGeometry(0.022*s,8,8), new THREE.MeshBasicMaterial({color}));
+    g.add(marker);
+    return g;
+  }
+
+  function buildTrueScaleMarker(color){
+    // genuine size would be SAT_TRUE_RADIUS_UNITS (sub-pixel); rendered as a small
+    // fixed-size position marker so it stays visible, scaled only by the marker-size control
+    const mat = new THREE.SpriteMaterial({
+      map:dotTexture, color, transparent:true, sizeAttenuation:false
+    });
+    const spr = new THREE.Sprite(mat);
+    const px = 0.018*cfg.satSize;
+    spr.scale.set(px, px, 1);
+    return spr;
+  }
+
+  function buildSatelliteMesh(color){
+    return cfg.trueScale ? buildTrueScaleMarker(color) : buildDetailedSatelliteMesh(color);
+  }
+
+  function orbitPoint(r, theta, incRad, raanRad){
+    let v = new THREE.Vector3(r*Math.cos(theta), 0, r*Math.sin(theta));
+    v.applyAxisAngle(new THREE.Vector3(1,0,0), incRad);
+    v.applyAxisAngle(new THREE.Vector3(0,1,0), raanRad);
+    return v;
+  }
+
+  function addArc(radius, thetaStart, thetaEnd, incRad, raanRad, colorHex, labelText, labelRadiusMul){
+    const pts = [];
+    const steps = 40;
+    for(let i=0;i<=steps;i++){
+      const th = thetaStart + (thetaEnd-thetaStart)*(i/steps);
+      pts.push(orbitPoint(radius, th, incRad, raanRad));
+    }
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({color:colorHex, transparent:true, opacity:0.95, linewidth:2});
+    const arc = new THREE.Line(geo, mat);
+    scene.add(arc); angleGroups.push(arc);
+
+    if(labelText){
+      const midTheta = (thetaStart+thetaEnd)/2;
+      const labelPos = orbitPoint(radius*(labelRadiusMul||1.12), midTheta, incRad, raanRad);
+      const label = makeLabel(labelText, colorToCss(colorHex));
+      label.position.copy(labelPos);
+      scene.add(label); angleGroups.push(label);
+    }
+  }
+
+  function buildConstellation(){
+    clearConstellation();
+    const S = Math.floor(cfg.T/cfg.P); // satellites per plane
+    const a = R_EARTH + cfg.altKm;
+    const r = a*SCALE;
+    const incRad = cfg.incDeg*Math.PI/180;
+    const refR = earthR*1.22; // reference ring for showing RAAN spacing between planes
+
+    for(let k=0;k<cfg.P;k++){
+      const raanRad = k*(2*Math.PI/cfg.P);
+      const color = PLANE_COLORS[k % PLANE_COLORS.length];
+
+      // orbit ring line
+      const pts = [];
+      for(let i=0;i<=96;i++){
+        const th = i/96*Math.PI*2;
+        pts.push(orbitPoint(r, th, incRad, raanRad));
+      }
+      const ringGeo = new THREE.BufferGeometry().setFromPoints(pts);
+      const ringMat = new THREE.LineBasicMaterial({color, transparent:true, opacity:0.4});
+      const ring = new THREE.Line(ringGeo, ringMat);
+      scene.add(ring);
+      orbitLines.push(ring);
+
+      // ascending-node tick on the equatorial reference ring
+      const node = orbitPoint(refR, 0, 0, raanRad);
+      const tickMat = new THREE.LineBasicMaterial({color, transparent:true, opacity:0.85});
+      const tickGeo = new THREE.BufferGeometry().setFromPoints([
+        orbitPoint(refR*0.97,0,0,raanRad), orbitPoint(refR*1.06,0,0,raanRad)
+      ]);
+      const tick = new THREE.Line(tickGeo, tickMat);
+      scene.add(tick); angleGroups.push(tick);
+      const nodeLabel = makeLabel('P'+(k+1), colorToCss(color));
+      nodeLabel.position.copy(orbitPoint(refR*1.14,0,0,raanRad));
+      scene.add(nodeLabel); angleGroups.push(nodeLabel);
+
+      for(let j=0;j<S;j++){
+        const theta0 = j*(2*Math.PI/S) + k*(2*Math.PI*cfg.F/cfg.T);
+        const mesh = buildSatelliteMesh(color);
+        if(mesh.isGroup) mesh.traverse(o=>{ if(o.isMesh) o.material = o.material.clone(); });
+        scene.add(mesh);
+        satGroups.push({ mesh, k, j, S, theta0, r, incRad, raanRad, color });
+      }
+    }
+
+    // angle callouts: RAAN spacing (between plane 1 and plane 2 nodes, on equatorial ring)
+    if(cfg.P >= 2){
+      addArc(refR, 0, 2*Math.PI/cfg.P, 0, 0, 0xdbe3ea, (360/cfg.P).toFixed(1)+'° RAAN', 1.0);
+    }
+    // in-plane spacing (between first two satellites of plane 1)
+    if(S >= 2){
+      addArc(r, 0, 2*Math.PI/S, incRad, 0, PLANE_COLORS[0], (360/S).toFixed(1)+'° in-plane', 0.82);
+    }
+    // inter-plane phase offset (plane 2's own slot-0 offset from its ascending node)
+    if(cfg.P >= 2){
+      const phaseOffset = 2*Math.PI*cfg.F/cfg.T;
+      if(phaseOffset > 0.001){
+        const raan1 = 2*Math.PI/cfg.P;
+        addArc(r, 0, phaseOffset, incRad, raan1, PLANE_COLORS[1], (360*cfg.F/cfg.T).toFixed(1)+'° phase', 0.82);
+      }
+    }
+
+    // precompute km-space positions for live distance math
+    satGroups.forEach(sat=>{ sat.rKm = a; });
+
+    updateTelemetry(S, a);
+  }
+
+  function positionSatellite(sat, theta){
+    let v = new THREE.Vector3(sat.r*Math.cos(theta), 0, sat.r*Math.sin(theta));
+    v.applyAxisAngle(new THREE.Vector3(1,0,0), sat.incRad);
+    v.applyAxisAngle(new THREE.Vector3(0,1,0), sat.raanRad);
+    sat.mesh.position.copy(v);
+    sat.mesh.lookAt(0,0,0);
+    sat.pos = v; sat.theta = theta;
+  }
+
+  // ---------- telemetry / derived values ----------
+  function updateTelemetry(S, a){
+    const period = 2*Math.PI*Math.sqrt(Math.pow(a,3)/MU); // seconds
+    const vel = Math.sqrt(MU/a); // km/s
+    const arcSep = (2*Math.PI*a)/S;                 // km, same-plane arc length
+    const chordSep = 2*a*Math.sin(Math.PI/S);        // km, same-plane straight-line distance
+    document.getElementById('t-spp').textContent = S;
+    document.getElementById('t-raan').textContent = (360/cfg.P).toFixed(1)+'°';
+    document.getElementById('t-inplane').textContent = (360/S).toFixed(1)+'°';
+    document.getElementById('t-phase').textContent = (360*cfg.F/cfg.T).toFixed(1)+'°';
+    document.getElementById('t-sma').textContent = Math.round(a)+' km';
+    document.getElementById('t-period').textContent = (period/60).toFixed(1)+' min';
+    document.getElementById('t-vel').textContent = vel.toFixed(2)+' km/s';
+    document.getElementById('t-arc').textContent = Math.round(arcSep)+' km';
+    document.getElementById('t-chord').textContent = Math.round(chordSep)+' km';
+    cfg._period = period; cfg._vel = vel; cfg._a = a;
+
+    const ratio = SAT_DIAGONAL_KM / (2*R_EARTH);
+    document.getElementById('scalefact').innerHTML =
+      'True scale: Earth is <b>'+(2*R_EARTH).toLocaleString()+' km</b> across; the Iridium bus diagonal is <b>'+ (SAT_DIAGONAL_KM*1000).toFixed(1) +' m</b> — a ratio of about <b>1 : '+Math.round(1/ratio).toLocaleString()+'</b>. Real satellites are sub-pixel at this view; markers above show true position, not true size.';
+  }
+
+  function rebuildLegend(){
+    const el = document.getElementById('legend');
+    el.innerHTML = '';
+    for(let k=0;k<cfg.P;k++){
+      const row = document.createElement('div'); row.className='row';
+      const sw = document.createElement('div'); sw.className='sw';
+      sw.style.background = '#'+(PLANE_COLORS[k%PLANE_COLORS.length]).toString(16).padStart(6,'0');
+      const label = document.createElement('span'); label.textContent = 'Plane '+(k+1);
+      row.appendChild(label); row.appendChild(sw);
+      el.appendChild(row);
+    }
+  }
+
+  // ---------- controls wiring ----------
+  const els = {
+    T: document.getElementById('s-T'), P: document.getElementById('s-P'), F: document.getElementById('s-F'),
+    inc: document.getElementById('s-inc'), alt: document.getElementById('s-alt'),
+    warp: document.getElementById('s-warp'), size: document.getElementById('s-size'),
+    trueScale: document.getElementById('s-truescale')
+  };
+  function syncLabelsAndRebuild(){
+    cfg.T = parseInt(els.T.value); cfg.P = parseInt(els.P.value); cfg.F = parseInt(els.F.value);
+    cfg.incDeg = parseFloat(els.inc.value); cfg.altKm = parseFloat(els.alt.value);
+    cfg.warp = parseFloat(els.warp.value); cfg.satSize = parseFloat(els.size.value);
+    cfg.trueScale = els.trueScale.checked;
+    document.getElementById('lbl-size').firstChild.textContent =
+      cfg.trueScale ? 'Marker size (visibility only) ' : 'Model size (exaggerated) ';
+
+    // keep F within valid Walker range [0, P-1]
+    if(cfg.F > cfg.P-1){ cfg.F = cfg.P-1; els.F.value = cfg.F; }
+    els.F.max = Math.max(cfg.P-1,0);
+
+    document.getElementById('v-T').textContent = cfg.T;
+    document.getElementById('v-P').textContent = cfg.P;
+    document.getElementById('v-F').textContent = cfg.F;
+    document.getElementById('v-inc').textContent = cfg.incDeg.toFixed(1)+'°';
+    document.getElementById('v-alt').textContent = Math.round(cfg.altKm)+' km';
+    document.getElementById('v-warp').textContent = Math.round(cfg.warp)+'×';
+    document.getElementById('v-size').textContent = cfg.satSize.toFixed(1)+'×';
+
+    rebuildLegend();
+    buildConstellation();
+  }
+  Object.values(els).forEach(el=>el.addEventListener('input', syncLabelsAndRebuild));
+
+  document.getElementById('btn-reset').addEventListener('click', ()=>{
+    els.T.value=24; els.P.value=6; els.F.value=1; els.inc.value=80; els.alt.value=780;
+    syncLabelsAndRebuild();
+  });
+  document.getElementById('btn-iridium').addEventListener('click', ()=>{
+    els.T.value=66; els.P.value=6; els.F.value=2; els.inc.value=86.4; els.alt.value=780;
+    syncLabelsAndRebuild();
+  });
+
+  const panelEl = document.getElementById('panel');
+  const menuOpenBtn = document.getElementById('menu-open');
+  document.getElementById('panel-close').addEventListener('click', ()=>{
+    panelEl.classList.add('collapsed');
+    menuOpenBtn.style.display = 'block';
+  });
+  menuOpenBtn.addEventListener('click', ()=>{
+    panelEl.classList.remove('collapsed');
+    menuOpenBtn.style.display = 'none';
+  });
+
+  const btnPlay = document.getElementById('btn-play');
+  btnPlay.addEventListener('click', ()=>{
+    cfg.playing = !cfg.playing;
+    btnPlay.textContent = cfg.playing ? 'Pause' : 'Play';
+  });
+
+  // ---------- satellite picking ----------
+  const raycaster = new THREE.Raycaster();
+  raycaster.params.Points.threshold = 0.05;
+  const mouse = new THREE.Vector2();
+  const satcard = document.getElementById('satcard');
+  let selected = null;
+
+  renderer.domElement.addEventListener('click', (e)=>{
+    mouse.x = (e.clientX/window.innerWidth)*2-1;
+    mouse.y = -(e.clientY/window.innerHeight)*2+1;
+    raycaster.setFromCamera(mouse, camera);
+    const meshes = satGroups.map(s=>s.mesh);
+    const hits = raycaster.intersectObjects(meshes, true);
+    if(hits.length){
+      let obj = hits[0].object;
+      while(obj.parent && !satGroups.find(s=>s.mesh===obj)) obj = obj.parent;
+      selected = satGroups.find(s=>s.mesh===obj) || null;
+    } else {
+      selected = null;
+    }
+    if(selected){
+      satcard.style.display='block';
+      satcard.style.left = Math.min(e.clientX+16, window.innerWidth-236) + 'px';
+      satcard.style.top = Math.min(e.clientY+16, window.innerHeight-160) + 'px';
+    } else {
+      satcard.style.display='none';
+    }
+  });
+
+  function updateSatCard(){
+    if(!selected){ return; }
+    const thetaDeg = ((selected.theta*180/Math.PI)%360+360)%360;
+    satcard.innerHTML = `
+      <h3>Plane ${selected.k+1} · Slot ${selected.j+1}</h3>
+      <div class="row"><span>True anomaly</span><b>${thetaDeg.toFixed(1)}°</b></div>
+      <div class="row"><span>Altitude</span><b>${Math.round(cfg.altKm)} km</b></div>
+      <div class="row"><span>Velocity</span><b>${cfg._vel.toFixed(2)} km/s</b></div>
+      <div class="row"><span>Period</span><b>${(cfg._period/60).toFixed(1)} min</b></div>
+      <div class="row"><span>Mass</span><b>860 kg</b></div>
+      <div class="row"><span>Bus size</span><b>3.1×2.4×1.5 m</b></div>
+    `;
+  }
+
+  // ---------- animation loop ----------
+  let last = performance.now();
+  function tick(now){
+    const dt = (now-last)/1000; last = now;
+    if(cfg.playing && cfg._period){
+      const omega = 2*Math.PI/cfg._period; // rad/s real
+      simTime += dt*cfg.warp;
+      satGroups.forEach(sat=>{
+        const theta = sat.theta0 + omega*simTime;
+        positionSatellite(sat, theta);
+      });
+    }
+    earthGroup.rotation.y += dt*0.01; // slow reference spin
+    updateSatCard();
+
+    frameCount++;
+    if(frameCount % 15 === 0 && satGroups.length > 1){
+      let minDist = Infinity;
+      for(let i=0;i<satGroups.length;i++){
+        for(let j=i+1;j<satGroups.length;j++){
+          if(satGroups[i].k === satGroups[j].k) continue; // only cross-plane pairs
+          const d = satGroups[i].mesh.position.distanceTo(satGroups[j].mesh.position);
+          if(d < minDist) minDist = d;
+        }
+      }
+      if(isFinite(minDist)){
+        const km = minDist / SCALE;
+        document.getElementById('t-cross').textContent = Math.round(km).toLocaleString()+' km';
+      } else {
+        document.getElementById('t-cross').textContent = '— (single plane)';
+      }
+    }
+
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+
+  syncLabelsAndRebuild();
+  requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>
